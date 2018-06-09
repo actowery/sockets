@@ -1,11 +1,16 @@
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netdb.h> 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h> 
+#include <sys/stat.h>
+#include <unistd.h>
+#define BUF_SIZE 99999
+
+#define LOCALHOST "localhost"
 
 void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
 
@@ -14,16 +19,20 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[256];
+	char buffer[BUF_SIZE];
+	char authKey = 'e';
     
-	if (argc < 3) { fprintf(stderr,"USAGE: %s hostname port\n", argv[0]); exit(0); } // Check usage & args
+	if (argc < 4) { fprintf(stderr,"Improper number of arguments"); exit(0); } // Check usage & args
+
+
 
 	// Set up the server address struct
+	memset(buffer, '\0', BUF_SIZE);
 	memset((char*)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
-	portNumber = atoi(argv[2]); // Get the port number, convert to an integer from a string
+	portNumber = atoi(argv[3]); // Get the port number, convert to an integer from a string
 	serverAddress.sin_family = AF_INET; // Create a network-capable socket
 	serverAddress.sin_port = htons(portNumber); // Store the port number
-	serverHostInfo = gethostbyname(argv[1]); // Convert the machine name into a special form of address
+	serverHostInfo = gethostbyname(LOCALHOST); // Convert the machine name into a special form of address
 	if (serverHostInfo == NULL) { fprintf(stderr, "CLIENT: ERROR, no such host\n"); exit(0); }
 	memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length); // Copy in the address
 
@@ -36,11 +45,20 @@ int main(int argc, char *argv[])
 		error("CLIENT: ERROR connecting");
 
 	// Get input message from user
-	printf("CLIENT: Enter text to send to the server, and then hit enter: ");
+	printf("CLIENT: authenticating.... ");
+	send(socketFD, authKey, sizeof(authKey), 0);
 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer array
-	fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
-	buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
+	recv(socketFD, buffer, sizeof(buffer), 0); 
+	//open the files and compare sizes
+    int text = open(argv[1], O_RDONLY);
+    int textLength = lseek(text, 0 , SEEK_END);
+    int key = open(argv[2], O_RDONLY);
+    int keyLength = lseek(key, 0, SEEK_END);
 
+    if (keyLength < textLength) {
+    	fprintf(stderr, "Error: key %s is too short", argv[2]);
+    	exit(1);
+    }
 	// Send message to server
 	charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
 	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
