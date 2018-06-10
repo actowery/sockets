@@ -1,4 +1,4 @@
-//Cihan Adrian Towert
+//Cihan Adrian Towery
 //P4-OTP
 //encoding and socket daemon. a lot is taken from server.c
 #include <netdb.h>
@@ -23,10 +23,10 @@ int processCount = 0;
 pid_t processes[512]; //to catch and limit processes during debug and to kill at end
 char cipher[BUF_SIZE];
 
-void encrypt(char[], char[]);
+void encrypt(char text[], int len, char key[]);     //Function prototypes to avoid errors
 
 
-char main(int argc, char* argv[]){
+int main(int argc, char* argv[]){
 
 	//from server.c
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead, charsSent;
@@ -43,7 +43,7 @@ char main(int argc, char* argv[]){
 	pid_t spawnPid;
 
 	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
-	//setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	//// Set up the socket
 	//if (listenSocketFD < 0) {
@@ -98,21 +98,23 @@ char main(int argc, char* argv[]){
             	//printf("received: %s\n", text);
             	send(establishedConnectionFD, authKey, strlen(authKey), 0);
 			    text[charsRead-1] = 0;
-	            //if(!authenticate(text)) break;;          
+	            if(!authenticate(text)) break;;          
 	        }
 	        else{
 	        	//print error like on example
 	            fprintf(stderr, "Error: could not contact %s on port %d\n", argv[0], portNumber);
 	            *yes=0;
+                exit(1);
 	        }
 		    char completeMessage[80000], readBuffer[1000];
 			memset(completeMessage, '\0', sizeof(completeMessage)); // Clear the buffer
-			while (strstr(completeMessage, "@@") == NULL) // As long as we haven't found the terminal...
+			while (strstr(completeMessage, "\n") == NULL) // As long as we haven't found the terminal...
 			{
 				memset(readBuffer, '\0', sizeof(readBuffer)); // Clear the buffer
 				int r = recv(establishedConnectionFD, readBuffer, sizeof(readBuffer) - 1, 0); 
 				strcat(completeMessage, readBuffer); 
 				//printf("PARENT: Message received from child: \"%s\", total: \"%s\"\n", readBuffer, completeMessage);
+		    //printf("\nPARENT: Message received from child: \n%s\n ", completeMessage);
 				if (r == -1) { //printf("r == -1\n"); 
 					break; 
 				} // Check for errors
@@ -120,75 +122,96 @@ char main(int argc, char* argv[]){
 					break; 
 				}
 			}
-			int terminalLocation = strstr(completeMessage, "@@") - completeMessage; 
-			completeMessage[terminalLocation] = '\0';
+            completeMessage[strcspn(completeMessage, "\n")] = '\0';
+
+		    //printf("\nPARENT: Message received from child: \n%s\n ", completeMessage);
+			//send(establishedConnectionFD, cipher, strlen(cipher), 0);
+
+            //printf("before terminallocation\n");
+			//int terminalLocation = strstr(completeMessage, "@@") - completeMessage; 
+			//completeMessage[terminalLocation] = '\0';
+            //printf("after terminallocation\n");
+
 			//printf("PARENT: Complete string: \"%s\"\n", completeMessage);
+            //printf("before completemsg2\n");
 		    char completeMessage2[80000];
 			memset(completeMessage2, '\0', sizeof(completeMessage2)); // Clear the buffer
-			while (strstr(completeMessage2, "@@") == NULL) // As long as we haven't found the terminal...
+            //printf("after completemsg2\n");
+            //printf("before while\n");
+			while (strstr(completeMessage2, "\n") == NULL) // As long as we haven't found the terminal...
 			{
+                //printf("hangs here\n");
 				memset(readBuffer, '\0', sizeof(readBuffer)); // Clear the buffer
 				int s = recv(establishedConnectionFD, readBuffer, sizeof(readBuffer) - 1, 0); 
 				strcat(completeMessage2, readBuffer); 
 				//printf("PARENT: Message received from child: \"%s\", total: \"%s\"\n", readBuffer, completeMessage);
-				if (s == -1) { //printf("r == -1\n"); 
+				if (s == -1) { //printf("rKey == -1\n"); 
 					break; 
 				} // Check for errors
-				if (s == 0) { //printf("r == 0\n"); 
+				if (s == 0) { //printf("rKey == 0\n"); 
 					break; 
 				}
 			}
-			int terminalLocation2 = strstr(completeMessage, "@@") - completeMessage; 
-			completeMessage[terminalLocation2] = '\0';
-			encrypt(completeMessage, completeMessage2);
-			send(establishedConnectionFD, cipher, strlen(cipher), 0);
+            completeMessage2[strcspn(completeMessage2, "\n")] = '\0';
+            //printf("after while\n");
+			//int terminalLocation2 = strstr(completeMessage, "@@") - completeMessage; 
+			//completeMessage2[terminalLocation2] = '\0';
+			//printf("\nKEY SHOULD BE: \n%s", completeMessage2);
+
+
+            //printf( "plaintext before cipher: \n%s", completeMessage );
+            completeMessage[strcspn(completeMessage, "\n")] = '\0';
+            completeMessage2[strcspn(completeMessage2, "\n")] = '\0';
+
+			encrypt(completeMessage, strlen(completeMessage), completeMessage2);
+            //printf("\nafter cipher\n");
+            cipher[strcspn(cipher, "\n")] = '\0';
+            //printf("\n\ncipher is: \n%s", cipher);
+            
+            int charsWritten;
+			charsWritten = send(establishedConnectionFD, cipher, strlen(cipher), 0);
+            if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+            if (charsWritten < strlen(cipher)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+
 
 			close(establishedConnectionFD);
             exit(0);
+
         default:
-        	//catch processes
-        	processes[processCount] = spawnPid;
-        	processCount++;
         	close(establishedConnectionFD);
 
         }
 	}	
 	close(listenSocketFD); // Close the listening socket
-	//redrum all processes
-	for (int i = 0; i < processCount; ++i)
-	{
-		printf("Murdered process %d\n", processes[processCount]);
-		kill(processes[processCount], SIGINT);
-		/* code */
-	}
-	return ; 
+
+	return 0; 
 }
 
 
-void encrypt(char text[], char key[]) {    //Function prototypes to avoid errors
-    memset(cipher, '\0', sizeof(cipher));
-	int i, plain, encoded, decoderRing;
-	for(i=0;i<strlen(text);i++){
-		plain = text[i];
-		//be sure to drink your ovaltine
-		decoderRing = key[i];
-		//change them to our ascii range
-		if(plain == SPACE) plain = 91;
-		if(decoderRing == SPACE) decoderRing = 91;
-		encoded = plain + decoderRing;
-		//printf("encoded is %d\n", encoded);
-		if (encoded > 91) { 
-			//subtract by range to get it back down to where it needs to be
-			encoded = encoded - (MAX-MIN);
-			//printf("encoded is changed to %d\n", encoded);
-		}
-		//THEN change to a space.. 
-		if (encoded == 91) encoded = SPACE;
-	cipher[i] = encoded;
-	}
-	cipher[i+1] = '\n'; //end the file with  a newline
-	printf("%s\n", cipher);
+void encrypt(char text[], int len, char key[]) {    //Function prototypes to avoid errors
+   //printf("inside encrypt\n");
+   char *codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+   memset(cipher, '\0', sizeof(cipher));
+int i, plain, encoded, decoderRing, asciiTmp;
 
+for(i=0;i<len;i++){
+plain = text[i];
+decoderRing = key[i];
+if(plain >= MIN && plain <= (MAX-2)) {
+plain = plain - MIN;
+}
+else if(plain == 32) {
+plain = 26;
+}
+if(decoderRing >= MIN && decoderRing <= (MAX-2)) {
+decoderRing = decoderRing - MIN;
+}
+else if(decoderRing == 32) {
+decoderRing = 26;
+}
+encoded = (plain + decoderRing) % 27;
+cipher[i] = (char)codes[encoded];
+}
 }
 
 int authenticate(char text[BUF_SIZE]) {

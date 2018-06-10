@@ -12,7 +12,7 @@
 
 #define LOCALHOST "localhost"
 
-void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
+void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
 int main(int argc, char *argv[])
 {
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	char buffer[BUF_SIZE];
 	char *authKey = "e";
     
-	if (argc < 4) { fprintf(stderr,"Improper number of arguments"); exit(0); } // Check usage & args
+	if (argc < 4) { fprintf(stderr,"Improper number of arguments"); exit(1); } // Check usage & args
 
 
 
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	serverAddress.sin_family = AF_INET; // Create a network-capable socket
 	serverAddress.sin_port = htons(portNumber); // Store the port number
 	serverHostInfo = gethostbyname(LOCALHOST); // Convert the machine name into a special form of address
-	if (serverHostInfo == NULL) { fprintf(stderr, "CLIENT: ERROR, no such host\n"); exit(0); }
+	if (serverHostInfo == NULL) { fprintf(stderr, "CLIENT: ERROR, no such host\n"); exit(1); }
 	memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length); // Copy in the address
 
 	// Set up the socket
@@ -108,12 +108,16 @@ int main(int argc, char *argv[])
     	}
     }
 
+    //printf("After sending the key\n"); 
 	//// Send message to server
-	//// Get return message from server
+	// Get return message from server
 	memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	 charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	 if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+	 	//printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+     buffer[strcspn(buffer, "\n")] = '\0';
+      
+     printf( "%s\n", buffer );
 
 	close(socketFD); // Close the socket
 	return 0;

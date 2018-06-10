@@ -1,4 +1,4 @@
-//Cihan Adrian Towert
+//Cihan Adrian Towery
 //P4-OTP
 //encoding and socket daemon. a lot is taken from server.c
 #include <netdb.h>
@@ -31,8 +31,9 @@ int main(int argc, char* argv[]){
 	//from server.c
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead, charsSent;
 	int running = 1;
-	int *yes;
-	yes = 1; //authenticate continuing 
+    int one = 1;
+	int *yes = &one;
+	*yes = 1; //authenticate continuing 
 	int i;
 	char *authKey = "e";
     char text[BUF_SIZE];
@@ -42,7 +43,7 @@ int main(int argc, char* argv[]){
 	pid_t spawnPid;
 
 	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
-	//setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	setsockopt(listenSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	//// Set up the socket
 	//if (listenSocketFD < 0) {
@@ -88,13 +89,13 @@ int main(int argc, char* argv[]){
         	////DO MORE STUFF HERE KEEP LOOPING TIL WE READ IT ALL
         	//start with a blank chararray, copy, encrypt, then send
 		    memset(text, '\0', BUF_SIZE);
-        	close(listenSocketFD);
+        	//close(listenSocketFD);
 			charsRead = recv(establishedConnectionFD, text, BUF_SIZE, 0); // Read the client's message from the socket
 			if (charsRead < 0) {error("ERROR on reading"); exit(1);}
 			//the transfer of a character for an auth handshake was e
 
-			if(text[charsRead-1] == authKey[0]){  
-            	printf("received: %s\n", text);
+			if(text[0] == authKey[0]){  
+            	//printf("received: %s\n", text);
             	send(establishedConnectionFD, authKey, strlen(authKey), 0);
 			    text[charsRead-1] = 0;
 	            //if(!authenticate(text)) break;;          
@@ -102,57 +103,65 @@ int main(int argc, char* argv[]){
 	        else{
 	        	//print error like on example
 	            fprintf(stderr, "Error: could not contact %s on port %d\n", argv[0], portNumber);
-	            yes=0;
+	            *yes=0;
 	        }
-	    char completeMessage[512], readBuffer[10];
-		memset(completeMessage, '\0', sizeof(completeMessage)); // Clear the buffer
-		while (strstr(completeMessage, "@@") == NULL) // As long as we haven't found the terminal...
-		{
-			memset(readBuffer, '\0', sizeof(readBuffer)); // Clear the buffer
-			int r = recv(listenSocketFD, readBuffer, sizeof(readBuffer) - 1, 0); // Get the next chunk
-			strcat(completeMessage, readBuffer); // Add that chunk to what we have so far
-			printf("PARENT: Message received from child: \"%s\", total: \"%s\"\n", readBuffer, completeMessage);
-			if (r == -1) { printf("r == -1\n"); break; } // Check for errors
-			if (r == 0) { printf("r == 0\n"); break; }
-		}
-		int terminalLocation = strstr(completeMessage, "@@") - completeMessage; // Where is the terminal
-		completeMessage[terminalLocation] = '\0'; // End the string early to wipe out the terminal
-		printf("PARENT: Complete string: \"%s\"\n", completeMessage);
-		
-		charsRead = recv(establishedConnectionFD, text, BUF_SIZE, 0); // Read the client's message from the socket
-			if (charsRead < 0) {error("ERROR on reading"); exit(1);}
+		    char completeMessage[80000], readBuffer[1000];
+			memset(completeMessage, '\0', sizeof(completeMessage)); // Clear the buffer
+			while (strstr(completeMessage, "@@") == NULL) // As long as we haven't found the terminal...
+			{
+				memset(readBuffer, '\0', sizeof(readBuffer)); // Clear the buffer
+				int r = recv(establishedConnectionFD, readBuffer, sizeof(readBuffer) - 1, 0); 
+				strcat(completeMessage, readBuffer); 
+				//printf("PARENT: Message received from child: \"%s\", total: \"%s\"\n", readBuffer, completeMessage);
+				if (r == -1) { //printf("r == -1\n"); 
+					break; 
+				} // Check for errors
+				if (r == 0) { //printf("r == 0\n"); 
+					break; 
+				}
+			}
+			send(establishedConnectionFD, cipher, strlen(cipher), 0);
+
+			int terminalLocation = strstr(completeMessage, "@@") - completeMessage; 
+			completeMessage[terminalLocation] = '\0';
 
 
-	        //printf("testprint\n");
-	        ////send back our authentication
-	        //charsSent = send(establishedConnectionFD, &yes, sizeof(yes), 0);
-			//if (charsSent < 0) {error("ERROR on sending"); exit(1);}
-			////get key
-			//charsRead = recv(establishedConnectionFD, key, BUF_SIZE, 0); // Read the client's message from the socket
-			//if (charsRead < 0) {error("ERROR on reading key"); exit(1);}
 
-			////start forking
-           	//encrypt(text, key);
-            //charsSent = send(establishedConnectionFD, cipher, sizeof(cipher), 0);
-			//if (charsSent < 0) {error("ERROR on sending from child"); exit(1);}
+
+			// printf("PARENT: Complete string: \"%s\"\n", completeMessage);
+		    char completeMessage2[80000];
+			memset(completeMessage2, '\0', sizeof(completeMessage2)); // Clear the buffer
+			while (strstr(completeMessage2, "@@") == NULL) // As long as we haven't found the terminal...
+			{
+				memset(readBuffer, '\0', sizeof(readBuffer)); // Clear the buffer
+				int s = recv(establishedConnectionFD, readBuffer, sizeof(readBuffer) - 1, 0); 
+				strcat(completeMessage2, readBuffer); 
+				//printf("PARENT: Message received from child: \"%s\", total: \"%s\"\n", readBuffer, completeMessage);
+				if (s == -1) { //printf("r == -1\n"); 
+					break; 
+				} // Check for errors
+				if (s == 0) { //printf("r == 0\n"); 
+					break; 
+				}
+			}
+			int terminalLocation2 = strstr(completeMessage, "@@") - completeMessage; 
+			completeMessage2[terminalLocation2] = '\0';
+			printf("KEY SHOULD BE %s\n", completeMessage2);
+			encrypt(completeMessage	, completeMessage2);
+			send(establishedConnectionFD, cipher, strlen(cipher), 0);
+
 			close(establishedConnectionFD);
             exit(0);
+
+
+
         default:
-        	//catch processes
-        	processes[processCount] = spawnPid;
-        	processCount++;
         	close(establishedConnectionFD);
 
         }
 	}	
 	close(listenSocketFD); // Close the listening socket
-	//redrum all processes
-	for (int i = 0; i < processCount; ++i)
-	{
-		printf("Murdered process %d\n", processes[processCount]);
-		kill(processes[processCount], SIGINT);
-		/* code */
-	}
+
 	return 0; 
 }
 
@@ -179,6 +188,7 @@ void encrypt(char text[], char key[]) {    //Function prototypes to avoid errors
 	cipher[i] = encoded;
 	}
 	cipher[i+1] = '\n'; //end the file with  a newline
+	printf("%s\n", cipher);
 
 }
 

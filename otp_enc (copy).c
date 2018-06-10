@@ -56,39 +56,64 @@ int main(int argc, char *argv[])
     int keyLength = lseek(key, 0, SEEK_END);
     close(key);
     close(text);
-	//recv(socketFD, buffer, sizeof(buffer)-1, 0); 
-    //printf("Receiving this: %s", buffer);
-	////open the files and compare sizes
+
+	recv(socketFD, buffer, sizeof(buffer)-1, 0); 
+    //printf("Receiving this: %s\n", buffer);
+	//open the files and compare sizes
+	//charsRead = send(socketFD, "", 0, 0);
 
     if (keyLength < textLength) {
     	fprintf(stderr, "Error: key %s is too short", argv[2]);
     	exit(1);
     }
-    char c;
+    char c, d;
     FILE *textFile = fopen(argv[1], "r");
-    FILE *keyFile = fopen(argv[2], "r");
     int x= 0;
 	memset(buffer, '\0', BUF_SIZE);
-    while (c = getc(textFile)) {
-    	buffer[x] = c;
-    	x++;
+    while ((c = getc(textFile))) {
+        if( c != EOF ) {
+            buffer[x] = c;
+            x++;
+
+        }
 
     	if (c == EOF || c == 0) {
-    		//printf("BUFFER HAS %s\n", buffer);
+    		//printf("Sending:  %s\n", buffer);
 			charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+    		//printf("charsWritten:  %d\n", charsWritten);
+            if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+            if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+
+			break;
+    	}
+    }
+    FILE *keyFile = fopen(argv[2], "r");
+	memset(buffer, '\0', BUF_SIZE);
+    x = 0;
+   	while ((d = getc(keyFile))) {
+        if( d != EOF ) {
+            buffer[x] = d;
+            x++;
+
+        }
+
+    	if (d == EOF || d== 0) {
+    		//printf("Sending:  %s\n", buffer);
+			charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+    		//printf("charsWritten:  %d\n", charsWritten);
+            if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+            if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+
 			break;
     	}
     }
 
 	//// Send message to server
-	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-	if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-
 	//// Get return message from server
 	//memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-	//charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-	//if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-	//printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+	// charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+	// if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+	// 	printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
 
 	close(socketFD); // Close the socket
 	return 0;
