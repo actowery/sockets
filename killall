@@ -1,6 +1,0 @@
-#!/bin/bash
-pkill otp_enc_d
-pkill otp_dec_d
-pkill otp_enc
-pkill otp_dec
-
