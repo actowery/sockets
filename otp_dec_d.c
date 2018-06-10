@@ -1,5 +1,5 @@
 //Cihan Adrian Towery
-//P4-OTP
+//P4-OTP dec_d
 //encoding and socket daemon. a lot is taken from server.c
 #include <netdb.h>
 #include <netinet/in.h>
@@ -16,7 +16,8 @@
 #define MIN 65
 #define MAX 92
 #define SPACE 32
-
+//classmate Long Le gave me this after telling me modulo with negative numbers dont work,
+//i think he got it from stackoverflow
 #define MOD(a,b) ((((a)%(b))+(b))%(b))
 
 //global process counter and space to transfer cipher text

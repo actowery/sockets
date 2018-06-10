@@ -1,5 +1,5 @@
 //Cihan Adrian Towery
-//P4-OTP
+//P4-OTP enc_d
 //encoding and socket daemon. a lot is taken from server.c
 #include <netdb.h>
 #include <netinet/in.h>
@@ -19,6 +19,7 @@
 //global process counter and space to transfer cipher text
 int authenticate(char text[BUF_SIZE]);
 void error( const char *msg ) {perror(msg); exit(1);}
+int goodFile = 1;
 int processCount = 0;
 pid_t processes[512]; //to catch and limit processes during debug and to kill at end
 char cipher[BUF_SIZE];
@@ -98,7 +99,6 @@ int main(int argc, char* argv[]){
             	//printf("received: %s\n", text);
             	send(establishedConnectionFD, authKey, strlen(authKey), 0);
 			    text[charsRead-1] = 0;
-	            if(!authenticate(text)) break;;          
 	        }
 	        else{
 	        	//print error like on example
@@ -106,6 +106,7 @@ int main(int argc, char* argv[]){
 	            *yes=0;
                 exit(1);
 	        }
+	        if(!authenticate(text)) break;;          
 		    char completeMessage[80000], readBuffer[1000];
 			memset(completeMessage, '\0', sizeof(completeMessage)); // Clear the buffer
 			while (strstr(completeMessage, "\n") == NULL) // As long as we haven't found the terminal...
@@ -165,14 +166,16 @@ int main(int argc, char* argv[]){
 
 			encrypt(completeMessage, strlen(completeMessage), completeMessage2);
             //printf("\nafter cipher\n");
-            cipher[strcspn(cipher, "\n")] = '\0';
+            if(goodFile) {
+            	cipher[strcspn(cipher, "\n")] = '\0';
+	            int charsWritten;
+				charsWritten = send(establishedConnectionFD, cipher, strlen(cipher), 0);
+	            if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+	            if (charsWritten < strlen(cipher)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+
+            }
             //printf("\n\ncipher is: \n%s", cipher);
             
-            int charsWritten;
-			charsWritten = send(establishedConnectionFD, cipher, strlen(cipher), 0);
-            if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-            if (charsWritten < strlen(cipher)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-
 
 			close(establishedConnectionFD);
             exit(0);
@@ -192,26 +195,31 @@ void encrypt(char text[], int len, char key[]) {    //Function prototypes to avo
    //printf("inside encrypt\n");
    char *codes = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
    memset(cipher, '\0', sizeof(cipher));
-int i, plain, encoded, decoderRing, asciiTmp;
-
-for(i=0;i<len;i++){
-plain = text[i];
-decoderRing = key[i];
-if(plain >= MIN && plain <= (MAX-2)) {
-plain = plain - MIN;
-}
-else if(plain == 32) {
-plain = 26;
-}
-if(decoderRing >= MIN && decoderRing <= (MAX-2)) {
-decoderRing = decoderRing - MIN;
-}
-else if(decoderRing == 32) {
-decoderRing = 26;
-}
-encoded = (plain + decoderRing) % 27;
-cipher[i] = (char)codes[encoded];
-}
+	int i, plain, encoded, decoderRing, asciiTmp;
+	goodFile = 1;
+	for(i=0;i<len;i++){
+		plain = text[i];
+		decoderRing = key[i];
+		if(plain >= MIN && plain <= (MAX-2)) {
+			plain = plain - MIN;
+		}
+		else if(plain == 32) {
+			plain = 26;
+		}
+		else {
+		    error("input contains bad characters");
+		    goodFile = 0;
+		    exit(1);
+		}
+		if(decoderRing >= MIN && decoderRing <= (MAX-2)) {
+			decoderRing = decoderRing - MIN;
+		}
+		else if(decoderRing == 32) {
+			decoderRing = 26;
+		}	
+		encoded = (plain + decoderRing) % 27;
+		cipher[i] = (char)codes[encoded];
+	}
 }
 
 int authenticate(char text[BUF_SIZE]) {

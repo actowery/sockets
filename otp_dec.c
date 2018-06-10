@@ -1,3 +1,7 @@
+//Cihan Adrian Towery
+//P4-OTP dec_d
+//encoding and socket daemon. a lot is taken from server.c
+
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netdb.h> 
